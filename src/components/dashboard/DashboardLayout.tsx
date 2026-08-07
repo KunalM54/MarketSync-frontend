@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth, type AuthUser } from "../../lib/auth";
-import ThemeToggle from "../ThemeToggle";
 import ModulePlaceholder from "./ModulePlaceholder";
 import {
   BellIcon,
@@ -206,7 +205,6 @@ export default function DashboardLayout({ overview, user }: { overview: ReactNod
             <input type="search" placeholder="Search products, orders…" aria-label="Search" />
           </div>
           <div className="top-actions">
-            <ThemeToggle />
             <button type="button" className="icon-btn" aria-label="Notifications" title="Notifications">
               <BellIcon />
               <span className="dot" />

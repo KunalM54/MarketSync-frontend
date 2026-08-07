@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import ThemeToggle from "../components/ThemeToggle";
 
 /* ------------------------------------------------------------------ */
 /* Small icon set (inline SVG, no dependencies)                        */
@@ -217,7 +216,6 @@ export default function LandingPage() {
                 </Link>
               </>
             )}
-            <ThemeToggle />
           </div>
         </div>
       </header>

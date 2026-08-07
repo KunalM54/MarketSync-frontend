@@ -5,7 +5,6 @@ import StatCard from "../../components/dashboard/StatCard";
 import StatusBadge from "../../components/dashboard/StatusBadge";
 import Stars from "../../components/dashboard/Stars";
 import {
-  adminActivity,
   adminOrders,
   adminOrdersSeries,
   adminRevenue,
@@ -196,24 +195,6 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          <section className="panel">
-            <div className="panel-head">
-              <h3 className="panel-title">
-                <LayersIcon /> Recent activity
-              </h3>
-            </div>
-            <div className="panel-body mini-list">
-              {adminActivity.map((a, i) => (
-                <div className="mini-row" key={i}>
-                  <span className={`activity-dot ${a.tone ?? ""}`} />
-                  <span className="mini-main">
-                    <span className="mini-title">{a.text}</span>
-                    <span className="mini-sub">{a.time}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
         </aside>
       </div>
 
