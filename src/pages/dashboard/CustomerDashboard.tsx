@@ -1,15 +1,19 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
+import { useCart } from "../../lib/cart";
+import { apiRequest, ApiError } from "../../lib/api";
 import DataTable, { type Column } from "../../components/dashboard/DataTable";
 import StatCard from "../../components/dashboard/StatCard";
 import StatusBadge from "../../components/dashboard/StatusBadge";
-import Stars from "../../components/dashboard/Stars";
+import ProductImage from "../../components/store/ProductImage";
 import {
   customerAddresses,
   customerOrders,
   formatINR,
-  recommended,
   type MockOrder,
 } from "../../lib/mock";
+import { formatINR as formatINRReal, type Product } from "../../lib/types";
 import {
   BoxIcon,
   CartIcon,
@@ -31,10 +35,50 @@ const orderColumns: Column<MockOrder>[] = [
   { key: "status", header: "Status", render: (o) => <StatusBadge status={o.status} /> },
 ];
 
+const realPrice = (p: Product) =>
+  p.variants.length > 0 ? Math.min(...p.variants.map((v) => v.price)) : null;
+
+const categoryName = (p: Product) =>
+  typeof p.category === "object" && p.category !== null ? p.category.name : "";
+
 export default function CustomerDashboard() {
   const { user } = useAuth();
+  const { addItem } = useCart();
   const firstName = user?.name.split(" ")[0] ?? "there";
   const orders = customerOrders;
+
+  const [liveProducts, setLiveProducts] = useState<Product[] | null>(null);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [addNotice, setAddNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest<Product[]>("/products")
+      .then((data) => {
+        if (!cancelled) setLiveProducts(data.slice(0, 4));
+      })
+      .catch(() => {
+        if (!cancelled) setLiveProducts(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const quickAdd = async (p: Product) => {
+    const variant = p.variants.find((v) => v.isActive) ?? p.variants[0];
+    if (!variant) return;
+    setAdding(p.id);
+    setAddNotice(null);
+    try {
+      await addItem(variant.id, 1);
+      setAddNotice(`Added “${variant.name}” to your cart`);
+    } catch (err) {
+      setAddNotice(err instanceof ApiError ? err.message : "Could not add to cart.");
+    } finally {
+      setAdding(null);
+    }
+  };
 
   return (
     <>
@@ -124,38 +168,69 @@ export default function CustomerDashboard() {
         </aside>
       </div>
 
+      {addNotice ? (
+        <div className="alert alert-success" role="status">
+          <CheckCircleIcon />
+          <span>{addNotice}</span>
+        </div>
+      ) : null}
+
       <section className="panel">
         <div className="panel-head">
           <h3 className="panel-title">
             <BoxIcon /> Picked for you
           </h3>
-          <span className="panel-meta">Based on your recent orders</span>
+          <span className="panel-meta">From the store · <Link to="/shop" className="view-all">View all</Link></span>
         </div>
         <div className="panel-body">
           <div className="product-grid">
-            {recommended.map((p) => (
-              <article className="product-card" key={p.name}>
-                <div className="product-tile" aria-hidden="true">
-                  {p.name.charAt(0)}
-                </div>
-                <div className="product-body">
-                  <h4 className="product-name">{p.name}</h4>
-                  <div className="product-meta">
-                    <span>{p.category}</span>
-                    <Stars rating={p.rating} />
+            {(liveProducts ?? []).map((p) => {
+              const price = realPrice(p);
+              const variant = p.variants.find((v) => v.isActive) ?? p.variants[0];
+              return (
+                <Link to={`/shop/${p.id}`} className="product-card" key={p.id}>
+                  <div className="product-tile">
+                    <ProductImage src={p.images[0]} alt={p.name} fallbackChar={p.name.charAt(0)} />
                   </div>
-                  <div className="price-row">
-                    <span className="price">
-                      {formatINR(p.price)}
-                      {p.oldPrice ? <s className="price-old">{formatINR(p.oldPrice)}</s> : null}
-                    </span>
-                    <button type="button" className="add-btn" title="Add to cart" aria-label={`Add ${p.name} to cart`}>
-                      <CartIcon />
-                    </button>
+                  <div className="product-body">
+                    <h4 className="product-name">{p.name}</h4>
+                    <div className="product-meta">
+                      <span>{categoryName(p)}</span>
+                      {p.variants.length > 1 ? <span>{p.variants.length} options</span> : null}
+                    </div>
+                    <div className="price-row">
+                      <span className="price">
+                        {price !== null ? formatINRReal(price) : "—"}
+                      </span>
+                      <button
+                        type="button"
+                        className="add-btn"
+                        title="Add to cart"
+                        aria-label={`Add ${p.name} to cart`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!variant) return;
+                          void quickAdd(p);
+                        }}
+                        disabled={adding === p.id || !variant}
+                      >
+                        {adding === p.id ? <span className="spinner" /> : <CartIcon />}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </Link>
+              );
+            })}
+
+            {liveProducts === null ? (
+              <div className="store-state mini-state">
+                <p>Products will appear here once sellers list them.</p>
+                <Link to="/shop" className="btn btn-outline btn-sm">
+                  Browse store
+                </Link>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

@@ -2,6 +2,8 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth, type AuthUser } from "../../lib/auth";
 import ModulePlaceholder from "./ModulePlaceholder";
+import SellerProducts from "../../pages/dashboard/seller/SellerProducts";
+import CustomerOrders from "../../pages/dashboard/CustomerOrders";
 import {
   BellIcon,
   BoxIcon,
@@ -82,6 +84,12 @@ const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Administrator",
   SELLER: "Seller",
   CUSTOMER: "Customer",
+};
+
+// Real (API-backed) modules keyed by role → nav id.
+const LIVE_MODULES: Record<string, Record<string, ReactNode>> = {
+  SELLER: { products: <SellerProducts /> },
+  CUSTOMER: { orders: <CustomerOrders /> },
 };
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -205,6 +213,9 @@ export default function DashboardLayout({ overview, user }: { overview: ReactNod
             <input type="search" placeholder="Search products, orders…" aria-label="Search" />
           </div>
           <div className="top-actions">
+            <Link to="/shop" className="btn btn-outline btn-sm top-shop-btn">
+              Shop
+            </Link>
             <button type="button" className="icon-btn" aria-label="Notifications" title="Notifications">
               <BellIcon />
               <span className="dot" />
@@ -218,6 +229,8 @@ export default function DashboardLayout({ overview, user }: { overview: ReactNod
         <main className="dash-content">
           {active === "overview" ? (
             overview
+          ) : LIVE_MODULES[user.role]?.[active] ? (
+            LIVE_MODULES[user.role][active]
           ) : (
             <ModulePlaceholder
               title={activeLabel}

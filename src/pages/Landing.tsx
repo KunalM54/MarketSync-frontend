@@ -191,6 +191,7 @@ export default function LandingPage() {
           </Link>
           <nav className="nav-links">
             <a href="#features">Features</a>
+            <Link to="/shop">Shop</Link>
           </nav>
           <div className="nav-actions">
             {user ? (
@@ -291,6 +292,7 @@ export default function LandingPage() {
           </div>
           <nav className="footer-links">
             <a href="#features">Features</a>
+            <Link to="/shop">Shop</Link>
             <a
               href="#top"
               onClick={(e) => {

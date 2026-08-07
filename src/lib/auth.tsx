@@ -1,5 +1,5 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { apiRequest } from "./api";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { apiRequest, ApiError } from "./api";
 
 export interface AuthUser {
   id: string;
@@ -39,6 +39,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* storage unavailable — keep in-memory state */
     }
   };
+
+  // On load, validate a stored session against the server. If the auth cookie
+  // is missing/expired, clear the stale local user so API calls don't fail.
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    apiRequest<AuthUser>("/auth/me")
+      .then((fresh) => {
+        if (!cancelled) persist(fresh);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Only clear on auth failures — keep the session if the API is just unreachable.
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          persist(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({

@@ -7,8 +7,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // Backend has no CORS middleware — route API calls through the dev server.
+      // Override the target with VITE_PROXY_TARGET if the backend runs on another port.
       "/api": {
-        target: "http://localhost:3000",
+        target: process.env.VITE_PROXY_TARGET ?? "http://localhost:3000",
         changeOrigin: true,
       },
     },

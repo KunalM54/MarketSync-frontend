@@ -10,8 +10,11 @@ export default function LoginPage() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const justRegistered =
-    (location.state as { registered?: boolean } | null)?.registered ?? false;
+  const navState = location.state as
+    | { registered?: boolean; from?: string }
+    | null;
+  const justRegistered = navState?.registered ?? false;
+  const redirectTo = navState?.from ?? "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,7 +49,7 @@ export default function LoginPage() {
     setFieldErrors({});
     try {
       await signIn(email.trim(), password);
-      navigate("/dashboard");
+      navigate(redirectTo);
     } catch (err) {
       if (err instanceof ApiError) {
         setFormError(err.message);

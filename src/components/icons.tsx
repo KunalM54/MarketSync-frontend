@@ -249,3 +249,33 @@ export const TrendingDownIcon = ({ size }: IconProps) =>
       <path d="M15 17h6v-6" />
     </>
   ));
+
+export const EditIcon = ({ size }: IconProps) =>
+  base(size, (
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </>
+  ));
+
+export const ImageIcon = ({ size }: IconProps) =>
+  base(size, (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-4.5-4.5L6 21" />
+    </>
+  ));
+
+export const BoltIcon = ({ size }: IconProps) =>
+  base(size, <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />);
+
+export const TrashIcon = ({ size }: IconProps) =>
+  base(size, (
+    <>
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ));
