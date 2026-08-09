@@ -13,8 +13,9 @@ export interface AuthUser {
 
 interface AuthContextValue {
   user: AuthUser | null;
-  signIn: (email: string, password: string) => Promise<AuthUser>;
+  signIn: (identifier: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -68,10 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      async signIn(email, password) {
+      async signIn(identifier, password) {
         const data = await apiRequest<AuthUser>("/auth/login", {
           method: "POST",
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ identifier, password }),
         });
         persist(data);
         return data;
@@ -83,6 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           /* server unreachable — still clear local state */
         }
         persist(null);
+      },
+      async refresh() {
+        const fresh = await apiRequest<AuthUser>("/auth/me");
+        persist(fresh);
       },
     }),
     [user],
@@ -99,9 +104,9 @@ export function useAuth(): AuthContextValue {
 
 export async function registerUser(input: {
   name: string;
-  email: string;
+  phone: string;
   password: string;
-  phone?: string;
+  email?: string;
 }): Promise<AuthUser> {
   return apiRequest<AuthUser>("/auth/register", {
     method: "POST",

@@ -2,21 +2,24 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
 import TextField from "../components/FormField";
-import { AlertIcon, CheckCircleIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon } from "../components/icons";
+import { AlertIcon, CheckCircleIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon } from "../components/icons";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { isValidPhone, normalizePhone } from "../lib/phone";
 
 export default function LoginPage() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const navState = location.state as
-    | { registered?: boolean; from?: string }
+    | { registered?: boolean; reset?: boolean; from?: string }
     | null;
   const justRegistered = navState?.registered ?? false;
-  const redirectTo = navState?.from ?? "/dashboard";
+  const justReset = navState?.reset ?? false;
 
-  const [email, setEmail] = useState("");
+  const homeFor = (role: string) => (role === "CUSTOMER" ? "/shop" : "/dashboard");
+
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -27,16 +30,20 @@ export default function LoginPage() {
     document.title = "Sign in — CommerceX";
   }, []);
 
-  // Already signed in? Straight to the dashboard.
+  // Already signed in? Straight to your home for your role.
   useEffect(() => {
-    if (user) navigate("/dashboard", { replace: true });
+    if (user) navigate(homeFor(user.role), { replace: true });
   }, [user, navigate]);
+
+  const isEmail = /@/.test(identifier.trim());
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    const isEmailValue = /@/.test(identifier.trim());
     const errs: Record<string, string> = {};
-    if (!email.trim()) errs.email = "Email is required.";
+    if (!identifier.trim()) errs.identifier = "Enter your phone number.";
+    else if (!isEmailValue && !isValidPhone(identifier)) errs.identifier = "Enter a 10-digit mobile number.";
     if (!password) errs.password = "Password is required.";
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
@@ -48,8 +55,9 @@ export default function LoginPage() {
     setFormError(null);
     setFieldErrors({});
     try {
-      await signIn(email.trim(), password);
-      navigate(redirectTo);
+      const payload = isEmailValue ? identifier.trim() : normalizePhone(identifier);
+      const data = await signIn(payload, password);
+      navigate(navState?.from ?? homeFor(data.role));
     } catch (err) {
       if (err instanceof ApiError) {
         setFormError(err.message);
@@ -66,13 +74,20 @@ export default function LoginPage() {
     <AuthLayout>
       <div className="auth-head">
         <h1>Welcome back</h1>
-        <p>Sign in to your CommerceX account.</p>
+        <p>Sign in with your phone number.</p>
       </div>
 
       {justRegistered ? (
         <div className="alert alert-success" role="status">
           <CheckCircleIcon />
           <span>Your account was created. Sign in to continue.</span>
+        </div>
+      ) : null}
+
+      {justReset ? (
+        <div className="alert alert-success" role="status">
+          <CheckCircleIcon />
+          <span>Password updated. Sign in with your new password.</span>
         </div>
       ) : null}
 
@@ -85,40 +100,48 @@ export default function LoginPage() {
 
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <TextField
-          id="email"
-          label="Email"
-          type="email"
-          autoComplete="email"
+          id="identifier"
+          label="Phone number"
+          type="text"
+          autoComplete="username"
           autoFocus
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          error={fieldErrors.email}
-          leadingIcon={<MailIcon />}
+          placeholder="98765 43210"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          error={fieldErrors.identifier}
+          leadingIcon={isEmail ? <MailIcon /> : <PhoneIcon />}
+          prefix={isEmail ? undefined : "+91"}
         />
 
-        <TextField
-          id="password"
-          label="Password"
-          type={showPassword ? "text" : "password"}
-          autoComplete="current-password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={fieldErrors.password}
-          leadingIcon={<LockIcon />}
-          trailing={
-            <button
-              type="button"
-              className="pass-toggle"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              title={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-            </button>
-          }
-        />
+        <div className="field-stack">
+          <TextField
+            id="password"
+            label="Password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={fieldErrors.password}
+            leadingIcon={<LockIcon />}
+            trailing={
+              <button
+                type="button"
+                className="pass-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            }
+          />
+          <div className="field-row-right">
+            <Link to="/forgot-password" className="forgot-link">
+              Forgot password?
+            </Link>
+          </div>
+        </div>
 
         <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
           {submitting ? (

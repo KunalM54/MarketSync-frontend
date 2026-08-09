@@ -4,24 +4,21 @@ import { useAuth, type AuthUser } from "../../lib/auth";
 import ModulePlaceholder from "./ModulePlaceholder";
 import SellerProducts from "../../pages/dashboard/seller/SellerProducts";
 import CustomerOrders from "../../pages/dashboard/CustomerOrders";
+import AccountSettings from "../../pages/dashboard/AccountSettings";
+import InventoryOverview from "../../pages/dashboard/InventoryOverview";
+import ProductsOverview from "../../pages/dashboard/ProductsOverview";
+import UsersPage from "../../pages/dashboard/UsersPage";
+import ConfirmDialog from "../ConfirmDialog";
 import {
-  BellIcon,
   BoxIcon,
-  CartIcon,
-  ChartIcon,
-  CreditCardIcon,
-  HeartIcon,
   HomeIcon,
   LayersIcon,
   LogoutIcon,
-  MapPinIcon,
   MenuIcon,
   SearchIcon,
   SettingsIcon,
-  StarIcon,
   StoreIcon,
   UsersIcon,
-  WalletIcon,
 } from "../icons";
 
 interface NavItem {
@@ -43,14 +40,11 @@ const NAV: Record<string, NavGroup[]> = {
       items: [
         { id: "products", label: "Products", icon: <BoxIcon /> },
         { id: "inventory", label: "Inventory", icon: <LayersIcon /> },
-        { id: "orders", label: "Orders", icon: <CartIcon /> },
         { id: "customers", label: "Customers", icon: <UsersIcon /> },
         { id: "sellers", label: "Sellers", icon: <StoreIcon /> },
-        { id: "payments", label: "Payments", icon: <CreditCardIcon /> },
       ],
     },
-    { label: "Insights", items: [{ id: "reports", label: "Reports", icon: <ChartIcon /> }] },
-    { label: "System", items: [{ id: "settings", label: "Settings", icon: <SettingsIcon /> }] },
+    { label: "Account", items: [{ id: "settings", label: "Settings", icon: <SettingsIcon /> }] },
   ],
   SELLER: [
     { items: [{ id: "overview", label: "Overview", icon: <HomeIcon /> }] },
@@ -59,22 +53,15 @@ const NAV: Record<string, NavGroup[]> = {
       items: [
         { id: "products", label: "Products", icon: <BoxIcon /> },
         { id: "inventory", label: "Inventory", icon: <LayersIcon /> },
-        { id: "orders", label: "Orders", icon: <CartIcon /> },
-        { id: "reviews", label: "Reviews", icon: <StarIcon /> },
       ],
     },
-    { label: "Finance", items: [{ id: "payouts", label: "Payouts", icon: <WalletIcon /> }] },
     { label: "Account", items: [{ id: "settings", label: "Settings", icon: <SettingsIcon /> }] },
   ],
   CUSTOMER: [
     { items: [{ id: "overview", label: "Overview", icon: <HomeIcon /> }] },
     {
       label: "Shopping",
-      items: [
-        { id: "orders", label: "Orders", icon: <CartIcon /> },
-        { id: "addresses", label: "Addresses", icon: <MapPinIcon /> },
-        { id: "wishlist", label: "Wishlist", icon: <HeartIcon /> },
-      ],
+      items: [{ id: "orders", label: "Orders", icon: <BoxIcon /> }],
     },
     { label: "Account", items: [{ id: "settings", label: "Settings", icon: <SettingsIcon /> }] },
   ],
@@ -88,23 +75,22 @@ const ROLE_LABEL: Record<string, string> = {
 
 // Real (API-backed) modules keyed by role → nav id.
 const LIVE_MODULES: Record<string, Record<string, ReactNode>> = {
-  SELLER: { products: <SellerProducts /> },
-  CUSTOMER: { orders: <CustomerOrders /> },
-};
-
-const DESCRIPTIONS: Record<string, string> = {
-  products: "Manage the full product catalog — add, edit, and organize listings across every category.",
-  inventory: "Track stock, reserved units, and restock thresholds so you never oversell.",
-  orders: "Review and manage every order on the platform, from checkout to delivery.",
-  customers: "Browse your customer base, order history, and lifetime value.",
-  sellers: "Approve and manage seller stores, ratings, and account health.",
-  payments: "Reconcile payments, refunds, and Razorpay settlements.",
-  reports: "Export revenue, tax, and performance reports for any date range.",
-  settings: "Configure store, team, and notification preferences.",
-  reviews: "Read and respond to reviews left on your products.",
-  payouts: "Track your earnings and scheduled payout cycles.",
-  addresses: "Manage the delivery addresses on your account.",
-  wishlist: "Products you have saved for later.",
+  ADMIN: {
+    products: <ProductsOverview />,
+    inventory: <InventoryOverview />,
+    customers: <UsersPage roleFilter="CUSTOMER" title="Customers" sub="People who shop on the platform." />,
+    sellers: <UsersPage roleFilter="SELLER" title="Sellers" sub="Accounts that list products on the platform." />,
+    settings: <AccountSettings />,
+  },
+  SELLER: {
+    products: <SellerProducts />,
+    inventory: <InventoryOverview title="My inventory" />,
+    settings: <AccountSettings />,
+  },
+  CUSTOMER: {
+    orders: <CustomerOrders />,
+    settings: <AccountSettings />,
+  },
 };
 
 const LogoMark = () => (
@@ -128,12 +114,15 @@ export default function DashboardLayout({ overview, user }: { overview: ReactNod
   const navigate = useNavigate();
   const [active, setActive] = useState("overview");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const groups = NAV[user.role] ?? NAV.CUSTOMER;
   const activeLabel =
     groups.flatMap((g) => g.items).find((i) => i.id === active)?.label ?? "Overview";
 
   const handleSignOut = async () => {
+    setSigningOut(true);
     await signOut();
     navigate("/login");
   };
@@ -188,7 +177,7 @@ export default function DashboardLayout({ overview, user }: { overview: ReactNod
           <button
             type="button"
             className="icon-btn signout-btn"
-            onClick={() => void handleSignOut()}
+            onClick={() => setConfirmSignOut(true)}
             title="Sign out"
             aria-label="Sign out"
           >
@@ -213,13 +202,6 @@ export default function DashboardLayout({ overview, user }: { overview: ReactNod
             <input type="search" placeholder="Search products, orders…" aria-label="Search" />
           </div>
           <div className="top-actions">
-            <Link to="/shop" className="btn btn-outline btn-sm top-shop-btn">
-              Shop
-            </Link>
-            <button type="button" className="icon-btn" aria-label="Notifications" title="Notifications">
-              <BellIcon />
-              <span className="dot" />
-            </button>
             <span className="avatar top-avatar" title={user.name}>
               {initials(user.name)}
             </span>
@@ -234,11 +216,22 @@ export default function DashboardLayout({ overview, user }: { overview: ReactNod
           ) : (
             <ModulePlaceholder
               title={activeLabel}
-              description={DESCRIPTIONS[active] ?? "This module is under construction."}
+              description="This module is under construction."
             />
           )}
         </main>
       </div>
+
+      <ConfirmDialog
+        open={confirmSignOut}
+        title="Sign out of CommerceX?"
+        message="You'll need to sign in again to manage your store."
+        confirmLabel="Sign out"
+        danger
+        pending={signingOut}
+        onConfirm={() => void handleSignOut()}
+        onCancel={() => setConfirmSignOut(false)}
+      />
     </div>
   );
 }

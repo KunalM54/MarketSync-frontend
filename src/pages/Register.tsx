@@ -5,19 +5,19 @@ import TextField from "../components/FormField";
 import { AlertIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon, UserIcon } from "../components/icons";
 import { ApiError } from "../lib/api";
 import { registerUser, useAuth } from "../lib/auth";
+import { digitsOnly, isValidPhone, normalizePhone } from "../lib/phone";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+[1-9]\d{1,14}$/;
 
 interface RegisterForm {
   name: string;
-  email: string;
   phone: string;
+  email: string;
   password: string;
   confirmPassword: string;
 }
 
-const EMPTY_FORM: RegisterForm = { name: "", email: "", phone: "", password: "", confirmPassword: "" };
+const EMPTY_FORM: RegisterForm = { name: "", phone: "", email: "", password: "", confirmPassword: "" };
 
 export default function RegisterPage() {
   const { user } = useAuth();
@@ -34,31 +34,33 @@ export default function RegisterPage() {
     document.title = "Create account — CommerceX";
   }, []);
 
-  // Already signed in? Straight to the dashboard.
+  // Already signed in? Straight to your home for your role.
   useEffect(() => {
-    if (user) navigate("/dashboard", { replace: true });
+    if (user) navigate(user.role === "CUSTOMER" ? "/shop" : "/dashboard", { replace: true });
   }, [user, navigate]);
 
+  const setPhone = (value: string) => setForm((f) => ({ ...f, phone: digitsOnly(value) }));
   const set = (key: keyof RegisterForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const validate = (): Record<string, string> => {
     const errs: Record<string, string> = {};
     const name = form.name.trim();
+    const phone = form.phone;
     const email = form.email.trim();
-    const phone = form.phone.trim();
 
     if (name.length < 3) errs.name = "Name must be at least 3 characters.";
     else if (name.length > 50) errs.name = "Name cannot exceed 50 characters.";
 
-    if (!EMAIL_RE.test(email)) errs.email = "Please enter a valid email address.";
+    if (!phone) errs.phone = "Phone number is required.";
+    else if (!isValidPhone(phone)) errs.phone = "Enter a 10-digit mobile number.";
+
+    if (email && !EMAIL_RE.test(email)) errs.email = "Please enter a valid email address.";
 
     if (form.password.length < 4) errs.password = "Password must be at least 4 characters.";
     else if (form.password.length > 10) errs.password = "Password cannot exceed 10 characters.";
 
     if (form.confirmPassword !== form.password) errs.confirmPassword = "Passwords do not match.";
-
-    if (phone && !PHONE_RE.test(phone)) errs.phone = "Use E.164 format, e.g. +919876543210.";
 
     return errs;
   };
@@ -79,9 +81,9 @@ export default function RegisterPage() {
     try {
       await registerUser({
         name: form.name.trim(),
-        email: form.email.trim(),
+        phone: normalizePhone(form.phone),
         password: form.password,
-        phone: form.phone.trim() || undefined,
+        ...(form.email.trim() && { email: form.email.trim() }),
       });
       navigate("/login", { state: { registered: true } });
     } catch (err) {
@@ -125,8 +127,23 @@ export default function RegisterPage() {
         />
 
         <TextField
+          id="phone"
+          label="Phone number"
+          type="tel"
+          autoComplete="tel"
+          placeholder="98765 43210"
+          value={form.phone}
+          onChange={(e) => setPhone(e.target.value)}
+          error={fieldErrors.phone}
+          leadingIcon={<PhoneIcon />}
+          prefix="+91"
+          hint="Required — sign in with this"
+        />
+
+        <TextField
           id="email"
           label="Email"
+          hint="Optional"
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
@@ -134,19 +151,6 @@ export default function RegisterPage() {
           onChange={set("email")}
           error={fieldErrors.email}
           leadingIcon={<MailIcon />}
-        />
-
-        <TextField
-          id="phone"
-          label="Phone"
-          hint="Optional"
-          type="tel"
-          autoComplete="tel"
-          placeholder="+919876543210"
-          value={form.phone}
-          onChange={set("phone")}
-          error={fieldErrors.phone}
-          leadingIcon={<PhoneIcon />}
         />
 
         <TextField

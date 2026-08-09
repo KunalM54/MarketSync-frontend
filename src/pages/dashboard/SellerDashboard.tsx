@@ -1,30 +1,13 @@
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
+import { apiRequest, ApiError } from "../../lib/api";
 import DataTable, { type Column } from "../../components/dashboard/DataTable";
-import { DonutChart, LineChart } from "../../components/dashboard/Charts";
 import StatCard from "../../components/dashboard/StatCard";
-import StatusBadge from "../../components/dashboard/StatusBadge";
-import Stars from "../../components/dashboard/Stars";
-import {
-  formatINR,
-  lowStock,
-  monthLabels,
-  sellerOrders,
-  sellerRevenue,
-  sellerStatusSegments,
-  sellerTopProducts,
-  sellerReviews,
-  type MockOrder,
-  type MockProduct,
-} from "../../lib/mock";
-import {
-  AlertIcon,
-  BoxIcon,
-  CartIcon,
-  ChartIcon,
-  CheckCircleIcon,
-  StarIcon,
-  WalletIcon,
-} from "../../components/icons";
+import type { Product } from "../../lib/types";
+import { formatINR } from "../../lib/types";
+import type { Inventory } from "./InventoryOverview";
+import { AlertIcon, BoxIcon, CheckCircleIcon, LayersIcon, PlusIcon } from "../../components/icons";
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -33,45 +16,120 @@ const greeting = () => {
   return "Good evening";
 };
 
-const orderColumns: Column<MockOrder>[] = [
-  { key: "id", header: "Order", render: (o) => <span className="mono">{o.id}</span> },
-  { key: "customer", header: "Customer", render: (o) => <span className="cell-strong">{o.customer}</span> },
-  { key: "date", header: "Date", render: (o) => <span className="cell-muted">{o.date}</span> },
-  { key: "items", header: "Items", align: "right", render: (o) => o.items },
-  { key: "total", header: "Total", align: "right", render: (o) => formatINR(o.total) },
-  { key: "status", header: "Status", render: (o) => <StatusBadge status={o.status} /> },
-];
+const today = () =>
+  new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-const productColumns: Column<MockProduct>[] = [
+const minPrice = (p: Product) =>
+  p.variants.length > 0 ? Math.min(...p.variants.map((v) => v.price)) : null;
+
+const categoryName = (p: Product) =>
+  typeof p.category === "object" && p.category !== null ? p.category.name : "";
+
+interface ProductRow {
+  product: Product;
+  stock: number;
+  low: boolean;
+}
+
+const productColumns: Column<ProductRow>[] = [
   {
     key: "product",
     header: "Product",
-    render: (p) => (
+    render: (r) => (
       <div className="cell-product">
-        <span className="mono-tile">{p.name.charAt(0)}</span>
+        <span className="mono-tile">{r.product.name.charAt(0)}</span>
         <span>
-          <span className="cell-strong">{p.name}</span>
+          <span className="cell-strong">{r.product.name}</span>
           <span className="cell-sub">
-            {p.sku} · {p.category}
+            {r.product.variants[0]?.sku ?? "—"} · {categoryName(r.product)}
           </span>
         </span>
       </div>
     ),
   },
-  { key: "sold", header: "Sold", align: "right", render: (p) => p.sold.toLocaleString("en-IN") },
-  { key: "revenue", header: "Revenue", align: "right", render: (p) => formatINR(p.revenue) },
-  { key: "rating", header: "Rating", render: (p) => <Stars rating={p.rating} /> },
+  {
+    key: "price",
+    header: "Price from",
+    align: "right",
+    render: (r) => (minPrice(r.product) !== null ? formatINR(minPrice(r.product)!) : "—"),
+  },
+  {
+    key: "variants",
+    header: "Options",
+    align: "right",
+    render: (r) => r.product.variants.filter((v) => v.isActive).length,
+  },
   {
     key: "stock",
     header: "Stock",
     align: "right",
-    render: (p) => <span className={p.stock <= p.threshold ? "text-warn" : undefined}>{p.stock}</span>,
+    render: (r) => r.stock.toLocaleString("en-IN"),
+  },
+  {
+    key: "status",
+    header: "Status",
+    render: (r) =>
+      r.low ? (
+        <span className="badge badge-warning">Low</span>
+      ) : (
+        <span className="badge badge-success">In stock</span>
+      ),
   },
 ];
 
 export default function SellerDashboard() {
   const { user } = useAuth();
   const firstName = user?.name.split(" ")[0] ?? "Seller";
+  const sellerId = user?.id;
+
+  const [products, setProducts] = useState<Product[] | null>(null);
+  const [inventory, setInventory] = useState<Inventory[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const [productData, inventoryData] = await Promise.all([
+        apiRequest<Product[]>("/products"),
+        apiRequest<Inventory[]>("/inventory").catch(() => [] as Inventory[]),
+      ]);
+      setProducts(productData);
+      setInventory(inventoryData);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not load dashboard data.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const mine = (products ?? []).filter((p) => sellerId === undefined || p.seller?.id === sellerId);
+
+  const myProductIds = new Set(mine.map((p) => p.id));
+  const myInventory = (inventory ?? []).filter((e) => myProductIds.has(e.product.id));
+
+  const stockByProduct = new Map<string, number>();
+  for (const e of myInventory) {
+    stockByProduct.set(e.product.id, (stockByProduct.get(e.product.id) ?? 0) + e.available);
+  }
+  const isLowProduct = (p: Product) => myInventory.some((e) => e.product.id === p.id && e.isLowStock);
+
+  const productRows: ProductRow[] = mine.map((p) => ({
+    product: p,
+    stock: stockByProduct.get(p.id) ?? 0,
+    low: isLowProduct(p),
+  }));
+
+  const lowEntries = myInventory.filter((e) => e.isLowStock).slice(0, 6);
+  const availableUnits = myInventory.reduce((sum, e) => sum + e.available, 0);
+
+  const loading = products === null || inventory === null;
 
   return (
     <>
@@ -80,69 +138,76 @@ export default function SellerDashboard() {
           <h1>
             {greeting()}, {firstName}
           </h1>
-          <p className="page-sub">Your store overview · {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+          <p className="page-sub">{today()} · your listings and stock, live</p>
         </div>
+        <Link to="/shop" className="btn btn-outline">
+          View my products in the store
+        </Link>
       </div>
+
+      {error ? (
+        <div className="alert alert-error" role="alert">
+          <AlertIcon />
+          <span>{error}</span>
+        </div>
+      ) : null}
 
       <div className="kpis">
-        <StatCard label="Store revenue" value="₹1.04L" delta={9.2} sub="This month so far" tone="brand" icon={<ChartIcon />} />
-        <StatCard label="Orders" value="342" delta={6.4} sub="41 pending fulfilment" tone="info" icon={<CartIcon />} />
-        <StatCard label="Active products" value="48" delta={3} sub="12 listed this month" tone="success" icon={<BoxIcon />} />
-        <StatCard label="Avg rating" value="4.8 ★" sub="128 reviews · +0.2 pts" tone="warning" icon={<StarIcon />} />
-      </div>
-
-      <div className="dash-grid-2">
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h3 className="panel-title">
-                <ChartIcon /> Sales
-              </h3>
-              <p className="panel-meta">Revenue · last 12 months</p>
-            </div>
-          </div>
-          <div className="panel-body">
-            <LineChart data={sellerRevenue} labels={monthLabels} />
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-head">
-            <h3 className="panel-title">
-              <CheckCircleIcon /> Order fulfilment
-            </h3>
-          </div>
-          <div className="panel-body donut-panel">
-            <div className="donut-wrap">
-              <DonutChart segments={sellerStatusSegments} />
-              <div className="donut-center">
-                <strong>342</strong>
-                <span>orders</span>
-              </div>
-            </div>
-            <div className="donut-legend">
-              {sellerStatusSegments.map((s) => (
-                <div className="donut-legend-row" key={s.label}>
-                  <span className="swatch" style={{ background: s.color }} />
-                  <span>{s.label}</span>
-                  <span className="donut-legend-val">{s.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <StatCard
+          label="My products"
+          value={loading ? "…" : String(mine.length)}
+          sub="Listed in the storefront"
+          tone="brand"
+          icon={<BoxIcon />}
+        />
+        <StatCard
+          label="Inventory SKUs"
+          value={loading ? "…" : String(myInventory.length)}
+          sub={`${loading ? "…" : availableUnits.toLocaleString("en-IN")} units available`}
+          tone="info"
+          icon={<LayersIcon />}
+        />
+        <StatCard
+          label="Low stock SKUs"
+          value={loading ? "…" : String(myInventory.filter((e) => e.isLowStock).length)}
+          sub={myInventory.some((e) => e.isLowStock) ? "need reorder attention" : "all levels healthy"}
+          tone="warning"
+          icon={<AlertIcon />}
+        />
+        <StatCard
+          label="Plus"
+          value="+"
+          sub="Put a new product on the store"
+          tone="success"
+          icon={<PlusIcon />}
+        />
       </div>
 
       <div className="dash-grid-main">
         <section className="panel">
           <div className="panel-head">
             <h3 className="panel-title">
-              <CartIcon /> Recent orders
+              <BoxIcon /> My products
             </h3>
-            <span className="panel-meta">View all</span>
+            <span className="panel-meta">{productRows.length} listed</span>
           </div>
           <div className="panel-body flush">
-            <DataTable columns={orderColumns} rows={sellerOrders} />
+            {loading ? (
+              <div className="store-state mini-state">
+                <span className="spinner" aria-hidden="true" />
+                <p>Loading…</p>
+              </div>
+            ) : productRows.length === 0 ? (
+              <div className="module-empty">
+                <span className="module-empty-ico">
+                  <BoxIcon />
+                </span>
+                <h2>No products listed yet</h2>
+                <p>Products you add in the catalog will show up here.</p>
+              </div>
+            ) : (
+              <DataTable columns={productColumns} rows={productRows} />
+            )}
           </div>
         </section>
 
@@ -154,85 +219,41 @@ export default function SellerDashboard() {
               </h3>
             </div>
             <div className="panel-body mini-list">
-              {lowStock.slice(0, 4).map((p) => {
-                const pct = Math.min(100, Math.round((p.stock / p.threshold) * 100));
-                return (
-                  <div className="mini-row" key={p.sku}>
-                    <span className="mono-tile sm">{p.name.charAt(0)}</span>
-                    <span className="mini-main">
-                      <span className="mini-title">{p.name}</span>
-                      <span className="mini-sub">
-                        {p.stock} left · {p.reserved} reserved
+              {inventory === null ? (
+                <div className="store-state mini-state">
+                  <p>Loading…</p>
+                </div>
+              ) : lowEntries.length === 0 ? (
+                <div className="mini-empty">
+                  <CheckCircleIcon />
+                  <p>No low-stock SKUs. Your inventory is healthy.</p>
+                </div>
+              ) : (
+                lowEntries.map((e) => {
+                  const pct = Math.min(
+                    100,
+                    Math.round((e.available / Math.max(e.lowStockThreshold, 1)) * 100),
+                  );
+                  return (
+                    <div className="mini-row" key={e.id}>
+                      <span className="mono-tile sm">{e.product.name.charAt(0)}</span>
+                      <span className="mini-main">
+                        <span className="mini-title">{e.product.name}</span>
+                        <span className="mini-sub">
+                          {e.available} available · threshold {e.lowStockThreshold}
+                        </span>
+                        <span className="stock-bar">
+                          <span style={{ width: `${pct}%` }} />
+                        </span>
                       </span>
-                      <span className="stock-bar">
-                        <span style={{ width: `${pct}%` }} />
-                      </span>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-head">
-              <h3 className="panel-title">
-                <WalletIcon /> Next payout
-              </h3>
-            </div>
-            <div className="panel-body payout-card">
-              <div className="payout-amount">{formatINR(28460)}</div>
-              <p>Estimated settlement for the current cycle, arriving on Aug 12.</p>
-              <div className="payout-progress">
-                <span style={{ width: "72%" }} />
-              </div>
-              <div className="payout-labels">
-                <span>₹20,480 paid</span>
-                <span>₹28,460 pending</span>
-              </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </section>
         </aside>
       </div>
-
-      <section className="panel">
-        <div className="panel-head">
-          <h3 className="panel-title">
-            <BoxIcon /> Top products
-          </h3>
-          <span className="panel-meta">By revenue this month</span>
-        </div>
-        <div className="panel-body flush">
-          <DataTable columns={productColumns} rows={sellerTopProducts} />
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-head">
-          <h3 className="panel-title">
-            <StarIcon /> Latest reviews
-          </h3>
-          <span className="panel-meta">4.8 average across 128 reviews</span>
-        </div>
-        <div className="panel-body">
-          <div className="review-grid">
-            {sellerReviews.map((r) => (
-              <article className="review-card" key={r.customer}>
-                <div className="review-top">
-                  <span className="avatar sm">{r.customer.charAt(0)}</span>
-                  <span className="review-who">
-                    <span className="cell-strong">{r.customer}</span>
-                    <span className="mini-sub">{r.date}</span>
-                  </span>
-                  <Stars rating={r.rating} />
-                </div>
-                <p className="review-text">{r.text}</p>
-                <p className="review-product">{r.product}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
     </>
   );
 }

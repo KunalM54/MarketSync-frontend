@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
 /* ------------------------------------------------------------------ */
@@ -179,7 +179,12 @@ function HeroMockup() {
 }
 
 export default function LandingPage() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+
+  // Logged-in users never see the marketing page — send them to their home.
+  if (user) {
+    return <Navigate to={user.role === "CUSTOMER" ? "/shop" : "/dashboard"} replace />;
+  }
 
   return (
     <>
@@ -194,29 +199,12 @@ export default function LandingPage() {
             <Link to="/shop">Shop</Link>
           </nav>
           <div className="nav-actions">
-            {user ? (
-              <>
-                <Link to="/dashboard" className="btn btn-outline btn-sm">
-                  Dashboard
-                </Link>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => void signOut()}
-                >
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="btn btn-ghost btn-sm">
-                  Sign in
-                </Link>
-                <Link to="/register" className="btn btn-primary btn-sm">
-                  Get started
-                </Link>
-              </>
-            )}
+            <Link to="/login" className="btn btn-ghost btn-sm">
+              Sign in
+            </Link>
+            <Link to="/register" className="btn btn-primary btn-sm">
+              Get started
+            </Link>
           </div>
         </div>
       </header>

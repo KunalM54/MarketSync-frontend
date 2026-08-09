@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import { useCart } from "../../lib/cart";
 import { CartIcon } from "../icons";
+import ConfirmDialog from "../ConfirmDialog";
 
 const LogoMark = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -15,8 +17,13 @@ export default function StoreNavbar() {
   const { user, signOut } = useAuth();
   const { count } = useCart();
   const navigate = useNavigate();
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const home = user ? (user.role === "CUSTOMER" ? "/shop" : "/dashboard") : "/";
 
   const handleSignOut = async () => {
+    setSigningOut(true);
     await signOut();
     navigate("/");
   };
@@ -24,7 +31,7 @@ export default function StoreNavbar() {
   return (
     <header className="navbar" id="store-top">
       <div className="container navbar-inner">
-        <Link to="/" className="brand">
+        <Link to={home} className="brand" title={user ? "Go to your home" : "CommerceX"}>
           <span className="brand-mark">
             <LogoMark />
           </span>
@@ -32,8 +39,18 @@ export default function StoreNavbar() {
         </Link>
 
         <nav className="nav-links" aria-label="Store">
-          <Link to="/">Home</Link>
-          <Link to="/shop">Shop</Link>
+          {!user ? (
+            <>
+              <Link to="/">Home</Link>
+              <Link to="/shop">Shop</Link>
+            </>
+          ) : user.role === "CUSTOMER" ? (
+            <>
+              <Link to="/shop">Shop</Link>
+              <Link to="/orders">My Orders</Link>
+              <Link to="/account">Account</Link>
+            </>
+          ) : null}
         </nav>
 
         <div className="nav-actions">
@@ -43,13 +60,15 @@ export default function StoreNavbar() {
           </Link>
           {user ? (
             <>
-              <Link to="/dashboard" className="btn btn-outline btn-sm">
-                Dashboard
-              </Link>
+              {user.role !== "CUSTOMER" ? (
+                <Link to="/dashboard" className="btn btn-outline btn-sm">
+                  Dashboard
+                </Link>
+              ) : null}
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={() => void handleSignOut()}
+                onClick={() => setConfirmSignOut(true)}
               >
                 Sign out
               </button>
@@ -66,6 +85,17 @@ export default function StoreNavbar() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmSignOut}
+        title="Sign out of CommerceX?"
+        message="You'll need to sign in again to continue shopping."
+        confirmLabel="Sign out"
+        danger
+        pending={signingOut}
+        onConfirm={() => void handleSignOut()}
+        onCancel={() => setConfirmSignOut(false)}
+      />
     </header>
   );
 }

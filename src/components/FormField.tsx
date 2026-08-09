@@ -1,12 +1,15 @@
 import type { InputHTMLAttributes, ReactNode } from "react";
+import { AlertIcon } from "./icons";
 
-interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> {
   id: string;
   label: string;
   hint?: string;
   error?: string;
   leadingIcon: ReactNode;
   trailing?: ReactNode;
+  /** Non-editable badge shown inside the field, before the text (e.g. "+91"). */
+  prefix?: ReactNode;
 }
 
 export default function TextField({
@@ -16,6 +19,7 @@ export default function TextField({
   error,
   leadingIcon,
   trailing,
+  prefix,
   className,
   ...rest
 }: TextFieldProps) {
@@ -29,11 +33,17 @@ export default function TextField({
         <span className="lead" aria-hidden="true">
           {leadingIcon}
         </span>
+        {prefix ? (
+          <span className="phone-prefix" aria-hidden="true">
+            {prefix}
+          </span>
+        ) : null}
         <input
           id={id}
           className={[
             "input",
             trailing ? "has-trailing" : "",
+            prefix ? "has-prefix" : "",
             error ? "invalid" : "",
             className ?? "",
           ]
@@ -47,7 +57,8 @@ export default function TextField({
       </div>
       {error ? (
         <span className="field-error" id={`${id}-error`} role="alert">
-          {error}
+          <AlertIcon />
+          <span>{error}</span>
         </span>
       ) : null}
     </div>
