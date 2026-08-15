@@ -2,22 +2,19 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
 import TextField from "../components/FormField";
-import { AlertIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon, UserIcon } from "../components/icons";
+import { AlertIcon, EyeIcon, EyeOffIcon, LockIcon, PhoneIcon, UserIcon } from "../components/icons";
 import { ApiError } from "../lib/api";
 import { registerUser, useAuth } from "../lib/auth";
 import { digitsOnly, isValidPhone, normalizePhone } from "../lib/phone";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 interface RegisterForm {
   name: string;
   phone: string;
-  email: string;
   password: string;
   confirmPassword: string;
 }
 
-const EMPTY_FORM: RegisterForm = { name: "", phone: "", email: "", password: "", confirmPassword: "" };
+const EMPTY_FORM: RegisterForm = { name: "", phone: "", password: "", confirmPassword: "" };
 
 export default function RegisterPage() {
   const { user } = useAuth();
@@ -47,15 +44,12 @@ export default function RegisterPage() {
     const errs: Record<string, string> = {};
     const name = form.name.trim();
     const phone = form.phone;
-    const email = form.email.trim();
 
     if (name.length < 3) errs.name = "Name must be at least 3 characters.";
     else if (name.length > 50) errs.name = "Name cannot exceed 50 characters.";
 
     if (!phone) errs.phone = "Phone number is required.";
     else if (!isValidPhone(phone)) errs.phone = "Enter a 10-digit mobile number.";
-
-    if (email && !EMAIL_RE.test(email)) errs.email = "Please enter a valid email address.";
 
     if (form.password.length < 4) errs.password = "Password must be at least 4 characters.";
     else if (form.password.length > 10) errs.password = "Password cannot exceed 10 characters.";
@@ -83,7 +77,6 @@ export default function RegisterPage() {
         name: form.name.trim(),
         phone: normalizePhone(form.phone),
         password: form.password,
-        ...(form.email.trim() && { email: form.email.trim() }),
       });
       navigate("/login", { state: { registered: true } });
     } catch (err) {
@@ -138,19 +131,6 @@ export default function RegisterPage() {
           leadingIcon={<PhoneIcon />}
           prefix="+91"
           hint="Required — sign in with this"
-        />
-
-        <TextField
-          id="email"
-          label="Email"
-          hint="Optional"
-          type="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          value={form.email}
-          onChange={set("email")}
-          error={fieldErrors.email}
-          leadingIcon={<MailIcon />}
         />
 
         <TextField

@@ -106,7 +106,6 @@ export async function registerUser(input: {
   name: string;
   phone: string;
   password: string;
-  email?: string;
 }): Promise<AuthUser> {
   return apiRequest<AuthUser>("/auth/register", {
     method: "POST",
