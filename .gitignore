@@ -6,7 +6,6 @@ dist
 dist-ssr
 
 # Local env files
-.env
 
 # Vite cache
 .vite
@@ -35,3 +34,4 @@ pnpm-debug.log*
 
 # Coverage
 coverage
+config.bat

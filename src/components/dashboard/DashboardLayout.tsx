@@ -9,6 +9,7 @@ import InventoryOverview from "../../pages/dashboard/InventoryOverview";
 import ProductsOverview from "../../pages/dashboard/ProductsOverview";
 import UsersPage from "../../pages/dashboard/UsersPage";
 import CreateUserPage from "../../pages/dashboard/CreateUserPage";
+import CategoriesPage from "../../pages/dashboard/CategoriesPage";
 import ConfirmDialog from "../ConfirmDialog";
 import {
   BoxIcon,
@@ -41,6 +42,7 @@ const NAV: Record<string, NavGroup[]> = {
       label: "Manage",
       items: [
         { id: "products", label: "Products", icon: <BoxIcon /> },
+        { id: "categories", label: "Categories", icon: <LayersIcon /> },
         { id: "inventory", label: "Inventory", icon: <LayersIcon /> },
         { id: "customers", label: "Customers", icon: <UsersIcon /> },
         { id: "sellers", label: "Sellers", icon: <StoreIcon /> },
@@ -80,6 +82,7 @@ const ROLE_LABEL: Record<string, string> = {
 const LIVE_MODULES: Record<string, Record<string, ReactNode>> = {
   ADMIN: {
     products: <ProductsOverview />,
+    categories: <CategoriesPage />,
     inventory: <InventoryOverview />,
     customers: <UsersPage roleFilter="CUSTOMER" title="Customers" sub="People who shop on the platform." />,
     sellers: <UsersPage roleFilter="SELLER" title="Sellers" sub="Accounts that list products on the platform." />,
