@@ -38,7 +38,6 @@ export default function AccountSettings() {
 
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
-  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSuccess, setOtpSuccess] = useState<string | null>(null);
   const [sendingOtp, setSendingOtp] = useState(false);
@@ -93,14 +92,12 @@ export default function AccountSettings() {
     setSendingOtp(true);
     setOtpError(null);
     setOtpSuccess(null);
-    setDevOtp(null);
     try {
-      const data = await apiRequest<{ devOtp?: string } | null>("/auth/send-phone-otp", {
+      await apiRequest("/auth/send-phone-otp", {
         method: "POST",
         body: "{}",
       });
       setOtpSent(true);
-      if (data?.devOtp) setDevOtp(data.devOtp);
     } catch (err) {
       setOtpError(
         err instanceof ApiError ? err.message : "Could not send the OTP.",
@@ -281,15 +278,6 @@ export default function AccountSettings() {
             <AlertIcon />
             <span>{otpSuccess}</span>
           </div>
-        ) : devOtp ? (
-          <div className="alert alert-info" role="status">
-            <AlertIcon />
-            <div>
-              <strong>Demo mode</strong> — no SMS provider is connected, so
-              your code is:
-              <code className="alert-code">{devOtp}</code>
-            </div>
-          </div>
         ) : null}
 
         {phoneVerified ? (
@@ -307,7 +295,7 @@ export default function AccountSettings() {
             <TextField
               id="acc-otp"
               label="Enter the 6-digit OTP"
-              hint="Check the backend console for the code (demo)"
+              hint="Sent to your WhatsApp number"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"

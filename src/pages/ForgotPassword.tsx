@@ -2,13 +2,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
 import TextField from "../components/FormField";
-import { AlertIcon, BoltIcon, CheckCircleIcon, PhoneIcon } from "../components/icons";
+import { AlertIcon, CheckCircleIcon, PhoneIcon } from "../components/icons";
 import { apiRequest, ApiError } from "../lib/api";
 import { digitsOnly, isValidPhone, normalizePhone } from "../lib/phone";
-
-interface ForgotResponse {
-  devOtp?: string;
-}
 
 interface VerifyResponse {
   resetToken?: string;
@@ -20,7 +16,6 @@ export default function ForgotPasswordPage() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -47,16 +42,14 @@ export default function ForgotPasswordPage() {
     setFormError(null);
     setFieldErrors({});
     setSentTo(null);
-    setDevOtp(null);
     setOtp("");
 
     try {
-      const data = await apiRequest<ForgotResponse>("/auth/forgot-password", {
+      await apiRequest("/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ identifier: normalizePhone(phoneDigits) }),
       });
       setSentTo(normalizePhone(phoneDigits));
-      if (data.devOtp) setDevOtp(data.devOtp);
     } catch (err) {
       if (err instanceof ApiError) {
         setFormError(err.message);
@@ -115,17 +108,6 @@ export default function ForgotPasswordPage() {
         </div>
       ) : null}
 
-      {devOtp ? (
-        <div className="alert alert-info" role="status">
-          <BoltIcon />
-          <div>
-            <strong>Demo mode</strong> — no SMS provider is connected in
-            development, so here is the code:
-            <code className="alert-code">{devOtp}</code>
-          </div>
-        </div>
-      ) : null}
-
       <form className="auth-form" onSubmit={handleSendOtp} noValidate>
         <TextField
           id="phone"
@@ -138,7 +120,6 @@ export default function ForgotPasswordPage() {
           onChange={(e) => {
             setPhone(digitsOnly(e.target.value));
             setSentTo(null);
-            setDevOtp(null);
           }}
           error={fieldErrors.phone}
           leadingIcon={<PhoneIcon />}
