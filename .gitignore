@@ -6,7 +6,7 @@ dist
 dist-ssr
 
 # Local env files
-
+.env.*.local
 # Vite cache
 .vite
 
@@ -19,7 +19,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Editor / OS
-.vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
